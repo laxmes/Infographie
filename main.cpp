@@ -32,12 +32,12 @@ void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, TGAColor color, int
 
 		if(A.y > B.y) std::swap(A, B);
 		for(int j = A.y; j <= B.y; j++) {
-			//int idx = j + (p0.x + i) * height;
-			//int z = A.z + ((B.y - A.y == 0) ? B.z : (((B.z - A.z) / (B.y - A.y)) * j));
-			//if(z > zbuffer[idx]) {
-			//	zbuffer[idx] = z;
+			int idx = j + (p0.x + i) * height;
+			int z = A.z + ((B.y - A.y == 0) ? B.z : (((B.z - A.z) / (B.y - A.y)) * j));
+			if(z > zbuffer[idx]) {
+				zbuffer[idx] = z;
 				image.set(i + p0.x, j, color);
-			//}
+			}
 		}
 	}
 }
