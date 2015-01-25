@@ -14,6 +14,38 @@ int * zbuffer = NULL;
 Vec3f light(0., 0., -1.);
 
 void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, TGAColor color, int * zbuffer) {
+	if(p0.y == p1.y && p0.y == p2.y) return;
+	if(p0.y > p1.y) std::swap(p0, p1);
+	if(p0.y > p2.y) std::swap(p0, p2);
+	if(p1.y > p2.y) std::swap(p1, p2);
+
+	int distance_p0p2 = p2.y - p0.y;
+	for(int i = 0; i < distance_p0p2; i++) {
+		bool inverted = (i + p0.y > p1.y) || p0.y == p1.y;
+
+		float coef0 = (float) i / distance_p0p2;
+		float coef1 = (float) (i - ((inverted) ? p1.y - p0.y : 0)) / ((inverted) ? p2.y - p1.y : p1.y - p0.y);
+
+		Vec3i A = p0 + ((p2 - p0) * coef0);
+		Vec3i B = ((inverted) ?
+				p1 + ((p2 - p1) * coef1) :
+				p0 + ((p1 - p0) * coef1));
+
+		if(A.x > B.x) std::swap(A, B);
+		for(int j = A.x; j <= B.x; j++) {
+			float coef = (B.x == A.x) ? 1. : (float) (j - A.x) / (float) (B.x - A.x);
+			int z = A.z + (B.z - A.z) * coef;
+			int id = ((p0.y + i) * width) + j;
+			if(z > zbuffer[id]) {
+				zbuffer[id] = z;
+				image.set(j, i + p0.y, color);
+			}
+		}
+	}
+}
+
+/*
+void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, TGAColor color, int * zbuffer) {
 	if(p0.x == p1.x && p0.x == p2.x) return;
 	if(p0.x > p1.x) std::swap(p0, p1);
 	if(p0.x > p2.x) std::swap(p0, p2);
@@ -41,6 +73,7 @@ void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, TGAColor color, int
 		}
 	}
 }
+*/
 
 int main() {
 	TGAImage image(width, height, 3);
@@ -52,6 +85,7 @@ int main() {
 	for(int i = 0; i < width * height; i++) {
 		zbuffer[i] = std::numeric_limits<int>::min();
 	}
+
 
 	for(int i = 0; i < model->nfaces(); i++) {
 		std::vector<int> face = model->face(i);
