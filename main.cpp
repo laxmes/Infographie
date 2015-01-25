@@ -13,7 +13,7 @@ Model * model = NULL;
 int * zbuffer = NULL;
 Vec3f light(0., 0., -1.);
 
-void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, TGAColor color, int * zbuffer) {
+void triangle(TGAImage &image, Vec6i p0, Vec6i p1, Vec6i p2, TGAColor color, int * zbuffer) {
 	if(p0.y == p1.y && p0.y == p2.y) return;
 	if(p0.y > p1.y) std::swap(p0, p1);
 	if(p0.y > p2.y) std::swap(p0, p2);
@@ -26,54 +26,26 @@ void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, TGAColor color, int
 		float coef0 = (float) i / distance_p0p2;
 		float coef1 = (float) (i - ((inverted) ? p1.y - p0.y : 0)) / ((inverted) ? p2.y - p1.y : p1.y - p0.y);
 
-		Vec3i A = p0 + ((p2 - p0) * coef0);
-		Vec3i B = ((inverted) ?
+		Vec6i A = p0 + ((p2 - p0) * coef0);
+		Vec6i B = ((inverted) ?
 				p1 + ((p2 - p1) * coef1) :
 				p0 + ((p1 - p0) * coef1));
 
 		if(A.x > B.x) std::swap(A, B);
-		for(int j = A.x; j <= B.x; j++) {
+		for(int j = (int) A.x; j <= (int) B.x; j++) {
 			float coef = (B.x == A.x) ? 1. : (float) (j - A.x) / (float) (B.x - A.x);
-			int z = A.z + (B.z - A.z) * coef;
+			Vec6i P = A + (B - A) * coef;
 			int id = ((p0.y + i) * width) + j;
-			if(z > zbuffer[id]) {
-				zbuffer[id] = z;
-				image.set(j, i + p0.y, color);
+			if(P.z > zbuffer[id]) {
+				//float intensity = Vec3f((float) P.nx, (float) P.ny, (float) P.nz).normalize() * light;
+				float intensity = 1 - Vec3f((float) P.x, (float) P.y, (float) P.z).normalize() * light;
+				zbuffer[id] = P.z;
+				if(intensity > 0)
+					image.set(j, i + (int) p0.y, TGAColor(color.r * intensity, color.g * intensity, color.b * intensity, color.a));
 			}
 		}
 	}
 }
-
-/*
-void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, TGAColor color, int * zbuffer) {
-	if(p0.x == p1.x && p0.x == p2.x) return;
-	if(p0.x > p1.x) std::swap(p0, p1);
-	if(p0.x > p2.x) std::swap(p0, p2);
-	if(p1.x > p2.x) std::swap(p1, p2);
-
-	float distance_p0p2 = p2.x - p0.x;
-	for(int i = 0; i < distance_p0p2; ++i) {
-		bool invert = (i > p1.x - p0.x) || (p0.x == p1.x);
-		float coef0 = (float) i / distance_p0p2;
-		float coef1 = (float) (i - ((invert) ? p1.x - p0.x : 0)) / ((invert) ? p2.x - p1.x : p1.x - p0.x);
-
-		Vec3i A = p0 + ((p2 - p0) * coef0);
-		Vec3i B = ((invert) ?
-				(p1 + ((p2 - p1) * coef1)) :
-				(p0 + ((p1 - p0) * coef1)));
-
-		if(A.y > B.y) std::swap(A, B);
-		for(int j = A.y; j <= B.y; j++) {
-			int idx = j + (p0.x + i) * height;
-			int z = A.z + ((B.y - A.y == 0) ? B.z : (((B.z - A.z) / (B.y - A.y)) * j));
-			if(z > zbuffer[idx]) {
-				zbuffer[idx] = z;
-				image.set(i + p0.x, j, color);
-			}
-		}
-	}
-}
-*/
 
 int main() {
 	TGAImage image(width, height, 3);
@@ -89,19 +61,16 @@ int main() {
 
 	for(int i = 0; i < model->nfaces(); i++) {
 		std::vector<int> face = model->face(i);
-		Vec3i screen_coords[3];
-		Vec3f world_coords[3];
+		Vec6i screen_coords[3];
 		for(int j = 0; j < 3; j++) {
 			Vec3f v = model->vert(face[j]);
-			screen_coords[j] = Vec3i((v.x + 1) * width / 2, (v.y + 1) * height / 2, (v.z + 1) * depth / 2);
-			world_coords[j] = v;
+			Vec3f nv = model->normal(face[j]);
+			screen_coords[j] = Vec6i(
+					Vec3i((v.x + 1) * width / 2., (v.y + 1) * height / 2., (v.z + 1) * depth / 2.),
+					Vec3i((nv.x + 1) * width / 2., (nv.y + 1) * height / 2., (nv.z + 1) * depth / 2.));
 		}
 
-		Vec3f n = (world_coords[2] - world_coords[0]) ^ (world_coords[1] - world_coords[0]);
-		n.normalize();
-		float intensity = n * light;
-		if(intensity > 0)
-			triangle(image, screen_coords[0], screen_coords[1], screen_coords[2], TGAColor(255 * intensity, 255 * intensity, 255 * intensity, 255), zbuffer);
+		triangle(image, screen_coords[0], screen_coords[1], screen_coords[2], TGAColor(255, 255, 255, 255), zbuffer);
 	}
 
 	delete model;
