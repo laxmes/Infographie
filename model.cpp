@@ -24,12 +24,15 @@ Model::Model(const char * path) {
 			normals_.push_back(vn);
 		} else if(line.compare(0, 2, "f ") == 0) {
 			std::vector<int> f;
-			int itrash, idx;
+			int itrash, idx, intensity[3];
 			iss >> trash;
-			while(iss >> idx >> trash >> itrash >> trash >> itrash) {
+			int i = 0;
+			while(iss >> idx >> trash >> itrash >> trash >> intensity[i]) {
 				idx--;
+				i++;
 				f.push_back(idx);
 			}
+			for(int i = 0; i < 3; i++) f.push_back(--intensity[i]);
 			faces_.push_back(f);
 		}
 	}
