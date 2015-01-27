@@ -11,7 +11,12 @@ const int depth  = 500;
 
 Model * model = NULL;
 int * zbuffer = NULL;
-Vec3f light = Vec3f(0., 0., 1.);
+
+Vec3f light  = Vec3f(0., 0., 1.);
+Vec3f camera = Vec3f(0., 0.5, 1.);
+Vec3f center = Vec3f(0.,0.,0.);
+Vec3f up   = Vec3f(0.,1.,0);
+
 
 void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, float intensity[], int * zbuffer) {
   if(p0.y == p1.y && p0.y == p2.y) return;
@@ -38,16 +43,30 @@ void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, float intensity[], 
     if(A.x > B.x) { std::swap(A, B); std::swap(nA, nB);}
     for(int j = A.x; j <= B.x; j++) {
       float coef = (B.x == A.x) ? 1. : (float) (j - A.x) / (float) (B.x - A.x);
-      float Pz = A.z + ((B.z - A.z) * coef);
+      Vec3f Pz;
+      Pz.x = j;
+      Pz.y = i + p0.y;
+      Pz.z = A.z + ((B.z - A.z) * coef);
       float nP = nA + (nB - nA) * coef;
       int id = ((p0.y + i) * width) + j;
-      if(Pz > zbuffer[id]) {
-	zbuffer[id] = Pz;
+      if(Pz.z > zbuffer[id]) {
+	zbuffer[id] = Pz.z;
 	nP = (nP < 0.) ? 0. : (nP > 1.) ? 1.: nP ;
-	image.set(j, i + (int) p0.y, TGAColor(255 * nP, 255 * nP, 255 * nP, 255));
+	image.set(Pz.x, Pz.y, TGAColor(255 * nP, 255 * nP, 255 * nP, 255));
       }
     }
   }
+}
+
+Matrix lookat(Vec3f camera, Vec3f up, Vec3f center) {
+  
+}
+
+Matrix projection(float coef) {
+  Matrix matrix();
+  matrix.identity();
+  matrix[3][2] = coef;
+  return matrix;
 }
 
 int main() {
@@ -61,6 +80,8 @@ int main() {
     zbuffer[i] = std::numeric_limits<int>::min();
   }
 
+  Matrix look       = lookAt(camera, up, center);
+  Matrix projection = projection(-1.);
 
   for(int i = 0; i < model->nfaces(); i++) {
     std::vector<int> face = model->face(i);
