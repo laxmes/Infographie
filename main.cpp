@@ -7,22 +7,22 @@
 
 const int WIDTH  = 1024;
 const int HEIGHT = 1024;
-const int DEPTH  = 255;
+const int DEPTH  = 1024;
 
 Model * model = NULL;
 int * zbuffer = NULL;
 
-Vec3f light  = Vec3f(1, 1, 1).normalize();
-Vec3f camera = Vec3f(2, 0, 5);
+Vec3f light  = Vec3f(1, 1, -1).normalize();
+Vec3f camera = Vec3f(0, 0, 5);
 Vec3f center = Vec3f(0, 0, 0);
 Vec3f up     = Vec3f(0, 1, 0);
 
 
-void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, float intensity[], Vec2i texture[], int * zbuffer) {
+void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, Vec2i texture[], int * zbuffer) {
   if(p0.y == p1.y && p0.y == p2.y) return;
-  if(p0.y > p1.y) { std::swap(p0, p1); std::swap(intensity[0], intensity[1]); std::swap(texture[0], texture[1]);}
-  if(p0.y > p2.y) { std::swap(p0, p2); std::swap(intensity[0], intensity[2]); std::swap(texture[0], texture[2]);}
-  if(p1.y > p2.y) { std::swap(p1, p2); std::swap(intensity[1], intensity[2]); std::swap(texture[1], texture[2]);}
+  if(p0.y > p1.y) { std::swap(p0, p1); std::swap(texture[0], texture[1]);}
+  if(p0.y > p2.y) { std::swap(p0, p2); std::swap(texture[0], texture[2]);}
+  if(p1.y > p2.y) { std::swap(p1, p2); std::swap(texture[1], texture[2]);}
     
   int distance_p0p2 = p2.y - p0.y;
   for(int i = 0; i <= distance_p0p2; i++) {
@@ -35,30 +35,32 @@ void triangle(TGAImage &image, Vec3i p0, Vec3i p1, Vec3i p2, float intensity[], 
     Vec3i B = ((inverted) ?
 	       p1 + ((p2 - p1) * coef1) :
 	       p0 + ((p1 - p0) * coef1));
-    float nA = intensity[0] + ((intensity[2] - intensity[0]) * coef0);
-    float nB = ((inverted) ?
-		intensity[1] + ((intensity[2] - intensity[1]) * coef1) :
-		intensity[0] + ((intensity[1] - intensity[0]) * coef1));
     Vec2i tA = texture[0] + ((texture[2] - texture[0]) * coef0);
     Vec2i tB = ((inverted) ?
 		texture[1] + ((texture[2] - texture[1]) * coef1) :
 		texture[0] + ((texture[1] - texture[0]) * coef1));
-    if(A.x > B.x) { std::swap(A, B); std::swap(nA, nB); std::swap(tA, tB);}
+    if(A.x > B.x) { std::swap(A, B); std::swap(tA, tB);}
     for(int j = A.x; j <= B.x; j++) {
       float coef = (B.x == A.x) ? 1. : (float) (j - A.x) / (float) (B.x - A.x);
       Vec3f Pz;
       Pz.x = j;
       Pz.y = i + p0.y;
       Pz.z = A.z + ((B.z - A.z) * coef);
-      float nP = nA + (nB - nA) * coef;
       Vec2i tP = tA + (tB - tA) * coef;
       int id = ((p0.y + i) * WIDTH) + j;
       if(Pz.z > zbuffer[id]) {
+	Vec3f n = model->normal(tP).normalize();
+	Vec3f reflect = (n * (n * light * 2.f) - light).normalize();
+	float spec = pow(std::max(0.f,reflect.z), model->spec(tP));
+	spec = std::min(1.f,spec);
 	TGAColor color = model->diffuse(tP);
-        float spec = model->spec(tP);
 	zbuffer[id] = Pz.z;
+	float nP = n*light;
 	nP = (nP < 0.) ? 0. : (nP > 1.) ? 1.: nP ;
-	image.set(Pz.x, Pz.y, TGAColor(color.r * spec, color.g * spec, color.b * spec, 255));
+	color.r = std::min(5.f + color.r * (nP + (.9f * spec)), 255.f);
+	color.g = std::min(5.f + color.g * (nP + (.9f * spec)), 255.f);
+	color.b = std::min(5.f + color.b * (nP + (.9f * spec)), 255.f);
+	image.set(Pz.x, Pz.y, color);
       }
     }
   }
@@ -115,7 +117,6 @@ int main() {
     
   for(int i = 0; i < model->nfaces(); i++) {
     std::vector<Vec3i> face = model->face(i);
-    float intensity[3];
     Vec2i texture[3];
     Vec3i screen_coords[3];
     for(int j = 0; j < 3; j++) {
@@ -126,10 +127,9 @@ int main() {
         
     for(int j = 0; j < 3; j++) {
       texture[j] = model->uv(i, j);
-      intensity[j] = model->normal(i, j).normalize() * light;
     }
         
-    triangle(image, screen_coords[0], screen_coords[1], screen_coords[2], intensity, texture, zbuffer);
+    triangle(image, screen_coords[0], screen_coords[1], screen_coords[2], texture, zbuffer);
   }
     
   delete model;
