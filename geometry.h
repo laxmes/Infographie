@@ -79,7 +79,7 @@ template<size_t LEN,size_t DIM,typename T> vec<LEN,T> embed(const vec<DIM,T> &v,
 template<size_t LEN,size_t DIM, typename T> vec<LEN,T> proj(const vec<DIM,T> &v) {
     vec<LEN,T> ret;
     for (size_t i=LEN; i--; ret[i]=v[i]);
-    return ret;
+    return ret / v[LEN];
 }
 
 template <typename T> vec<3,T> cross(vec<3,T> v1, vec<3,T> v2) {
